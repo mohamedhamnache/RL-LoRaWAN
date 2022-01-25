@@ -8,9 +8,9 @@ import random
 from environment import Environment
 
 from utils import SF_alloc_ch_utilization, print_nodes, reward_plot
-from graph import node_Gen
+from graph import node_Gen, SF_alloc_plot
 
-nodes = node_Gen(5, display=False)
+nodes = node_Gen(100, display=False)
 nodes, sf_distribution, ch_u = SF_alloc_ch_utilization(nodes)
 
 train_episodes = 300
@@ -28,9 +28,9 @@ class DQNAgent:
                 14, input_shape=state_shape, activation="relu", kernel_initializer=init
             )
         )
-        model.add(Dense(12, activation="relu", kernel_initializer=init))
+        model.add(Dense(28, activation="relu", kernel_initializer=init))
 
-        model.add(Dense(450, activation="linear", kernel_initializer=init))
+        model.add(Dense(90 * 100, activation="linear", kernel_initializer=init))
 
         model.compile(
             loss=tf.keras.losses.Huber(),
@@ -52,23 +52,33 @@ class DQNAgent:
 
         batch_size = 64 * 2
         mini_batch = random.sample(replay_memory, batch_size)
-        #print(len(mini_batch))
-        #print(mini_batch)
-        
-        #current_states = np.array([transition[0] for transition in mini_batch],dtype=object)
-        #print()
-        current_states = np.array(np.array([transition[0]  for transition in mini_batch if transition[0] is not None]))
-        #print('states len : ',len(current_states))
-        #current_states= np.array(current_states).astype("float32")
-        #print(current_states)
-        #current_states = np.asarray(current_states).astype(np.float32)
+        # print(len(mini_batch))
+        # print(mini_batch)
+
+        # current_states = np.array([transition[0] for transition in mini_batch],dtype=object)
+        # print()
+        current_states = np.array(
+            np.array(
+                [
+                    transition[0]
+                    for transition in mini_batch
+                    if transition[0] is not None
+                ]
+            )
+        )
+        # print('states len : ',len(current_states))
+        # current_states= np.array(current_states).astype("float32")
+        # print(current_states)
+        # current_states = np.asarray(current_states).astype(np.float32)
         current_qs_list = model.predict(current_states)
-        #print(current_qs_list)
-        #print('Current: ',len(current_qs_list))
-        #print('Mini batch : ',len(mini_batch))
-        new_current_states = np.array([transition[3] for transition in mini_batch if transition[3] is not None])
+        # print(current_qs_list)
+        # print('Current: ',len(current_qs_list))
+        # print('Mini batch : ',len(mini_batch))
+        new_current_states = np.array(
+            [transition[3] for transition in mini_batch if transition[3] is not None]
+        )
         future_qs_list = target_model.predict(new_current_states)
-        #print()
+        # print()
 
         X = []
         Y = []
@@ -81,9 +91,9 @@ class DQNAgent:
                 max_future_q = reward
 
             current_qs = current_qs_list[index]
-            #print('The current_qs : ',current_qs)
-            #print('action : ',action)
-            
+            # print('The current_qs : ',current_qs)
+            # print('action : ',action)
+
             current_qs[index] = (1 - learning_rate) * current_qs[
                 index
             ] + learning_rate * max_future_q
@@ -115,6 +125,7 @@ def main():
     print(env.observation_space.shape)
     print(env.action_space.shape)
     print_nodes(nodes)
+    #SF_alloc_plot(nodes,10,5,display=True)
     model = agent.create_model(env.action_space.shape, env.observation_space.shape)
     print("Model Created !")
     # Target Model (updated every 100 steps)
@@ -135,33 +146,33 @@ def main():
     steps_to_update_target_model = 0
 
     for episode in range(train_episodes):
-        #print('Episode : ',episode)
+        print('Episode : ',episode)
         total_training_rewards = 0
         observation = env.reset()
         done = False
         while not done:
             steps_to_update_target_model += 1
-            #if True:
-                #env.render()
+            # if True:
+            # env.render()
 
             random_number = np.random.rand()
             # 2. Explore using the Epsilon Greedy Exploration Strategy
             if random_number <= epsilon:
                 # Explore
-                #print('Explore')
+                # print('Explore')
                 action = env.action_space.sample()
             else:
-                
+
                 # Exploit best known action
                 # model dims are (batch, env.observation_space.n)
-               #print('Exploit')
+                # print('Exploit')
                 encoded = observation
                 encoded_reshaped = encoded.reshape([1, encoded.shape[0]])
-                #print('model : ',model)
-                #print('Encoded state : ',encoded_reshaped)
+                # print('model : ',model)
+                # print('Encoded state : ',encoded_reshaped)
                 predicted = model.predict(encoded_reshaped)
                 action = np.argmax(predicted)
-                action =env.ACTION_SPACE_GEN[action]
+                action = env.ACTION_SPACE_GEN[action]
             new_observation, reward, done, info = env.step(action)
             replay_memory.append([observation, action, reward, new_observation, done])
 
@@ -186,8 +197,9 @@ def main():
                     target_model.set_weights(model.get_weights())
                     steps_to_update_target_model = 0
                 break
-        
+
         epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay * episode)
+        #SF_alloc_plot(nodes,10,5,display=True)
     env.close()
     print_nodes(env.NODES)
     print(final_rewards)

@@ -64,15 +64,15 @@ class Environment(gym.Env):
 
     def action_space_generator(self):
         action_space = []
-        
+
         for n in range(self.N):
-            
+
             for sf in self.SF_SET:
-                
-                for tp in range (len(self.TP_SET)):
-                    
+
+                for tp in range(len(self.TP_SET)):
+
                     for ch in range(len(self.CH_SET)):
-                        action_space.append([n,sf, tp, ch])
+                        action_space.append([n, sf, tp, ch])
         return action_space
 
     def toa(self, sf, cr, pl, bw):
@@ -106,18 +106,25 @@ class Environment(gym.Env):
     def reward_function_zero(self, tp):
         return (tp_max - tp) / (tp_max - tp_min)
 
+    def compute_der(self, sf_dist):
+        der = 0
+        for index in range(len(sf_dist)):
+            rho = self.rho_compute(self.SF_SET[index], sf_dist[index])
+            der_sf = math.exp(-2 * rho)
+            der = der + (der_sf * sf_dist[index])
+        return (der / self.N) * 100
+
     def reset(self):
-        sf_dist,tp_dist, u_ch = compute_sf_ch_utilization(self.NODES)
-        state = np.concatenate((sf_dist,tp_dist,u_ch))
+        sf_dist, tp_dist, u_ch = compute_sf_ch_utilization(self.NODES)
+        state = np.concatenate((sf_dist, tp_dist, u_ch))
         self.condition = 0
         return state
-        
-        
 
     def step(self, action):
-        #print('Step : ',self.condition)
-        #print('Action : ',action)
-        #assert self.action_space.contains(action)
+        # print('Step : ',self.condition)
+        # print('Action : ',action)
+        # assert self.action_space.contains(action)
+        reward = 0
         node = self.NODES[action[0]]
         old_sf = node.sf
         old_tp = node.tx
@@ -126,19 +133,21 @@ class Environment(gym.Env):
         new_tp = self.TP_SET[action[2]]
         new_ch = action[3]
 
-        sf_dist,tp_dist, u_ch = compute_sf_ch_utilization(self.NODES)
-        
+        sf_dist, tp_dist, u_ch = compute_sf_ch_utilization(self.NODES)
+        der = self.compute_der(sf_dist)
+        #print("DER : ", der)
         config = config_dict[new_sf - 7]
-        #print("config : ", config)
+        # print("config : ", config)
         rho = self.rho_compute(new_sf, sf_dist[new_sf - 7])
-        #print("node snr : {} rssi : {}".format(node.snr, node.rssi))
-        #print("node old sf : {} new sf: {}".format(old_sf, new_sf))
+        # print('rho',rho)
+        # print("node snr : {} rssi : {}".format(node.snr, node.rssi))
+        # print("node old sf : {} new sf: {}".format(old_sf, new_sf))
         if node.snr < config["snr"] or node.rssi < config["sens"]:
             reward = -1
-            
+
         else:
 
-            if rho > 0 and u_ch [new_ch] >0 :
+            if rho > 0 and u_ch[new_ch] > 0:
                 reward = self.reward_function(rho, u_ch[new_ch], new_tp)
             else:
                 reward = self.reward_function_zero(new_tp)
@@ -146,29 +155,35 @@ class Environment(gym.Env):
             self.NODES[action[0]].sf = new_sf
             self.NODES[action[0]].freq = ch[new_ch]
             self.NODES[action[0]].tx = new_tp
-            
-            sf_dist[old_sf-7] = sf_dist[old_sf-7] -1
-            sf_dist[new_sf-7] = sf_dist[new_sf-7] +1
-            
+
+            sf_dist[old_sf - 7] = sf_dist[old_sf - 7] - 1
+            sf_dist[new_sf - 7] = sf_dist[new_sf - 7] + 1
+
             old_tp_index = self.TP_SET.index(old_tp)
             new_tp_index = self.TP_SET.index(new_tp)
-            tp_dist[old_tp_index] = tp_dist[old_tp_index] -1
-            tp_dist[new_tp_index] = tp_dist[new_tp_index] +1
-            
+            tp_dist[old_tp_index] = tp_dist[old_tp_index] - 1
+            tp_dist[new_tp_index] = tp_dist[new_tp_index] + 1
+
             old_ch_index = ch.index(old_ch)
             new_ch_index = new_ch
-            u_ch[old_ch_index] = u_ch[old_ch_index] -1
-            u_ch[new_ch_index] = u_ch[new_ch_index] +1
-        #print(sf_dist)
-        #print(tp_dist)
-        #print(u_ch)
-        new_state = np.concatenate((sf_dist,tp_dist,u_ch))
+            u_ch[old_ch_index] = u_ch[old_ch_index] - 1
+            u_ch[new_ch_index] = u_ch[new_ch_index] + 1
+        # print(sf_dist)
+        # print(tp_dist)
+        # print(u_ch)
+
+        # print('Reward = ',reward)
+        new_state = np.concatenate((sf_dist, tp_dist, u_ch))
+        # print('')
         done = False
         self.condition = self.condition + 1
-        if self.condition == 5 :
+        if self.condition == 100:
             done = True
+        #if der > 95:
+            #done = True
+
         info = ""
-        
+
         return new_state, reward, done, info
 
     def render(self):
