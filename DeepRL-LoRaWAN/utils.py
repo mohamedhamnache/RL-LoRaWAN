@@ -54,13 +54,13 @@ def compute_sf_ch_utilization(nodes):
 
 
 def energy_consumption(nodes):
-    energy = (
+    return (
         sum(
-            node.packet.rectime * TX[int(node.tx) + 2] * 3 * node.sent for node in nodes
+            node.packet.rectime * TX[int(node.tx) + 2] * 3 * node.sent
+            for node in nodes
         )
         / 1e6
     )
-    return energy
 
 
 def print_nodes(nodes):
@@ -71,3 +71,5 @@ def print_nodes(nodes):
 def reward_plot(rewards):
     plt.plot(rewards)
     plt.show()
+
+

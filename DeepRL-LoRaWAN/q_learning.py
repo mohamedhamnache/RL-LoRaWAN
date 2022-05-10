@@ -40,7 +40,7 @@ for i in range(1, 100001):
         new_value = (1 - alpha) * old_value + alpha * (reward + gamma * next_max)
         q_table[state, action] = new_value
 
-        if reward == -10:
+        if reward == -1:
             penalties += 1
 
         state = next_state
